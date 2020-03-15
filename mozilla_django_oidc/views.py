@@ -81,12 +81,20 @@ class OIDCAuthenticationCallbackView(View):
             nonce = request.session['oidc_states'][state]['nonce']
             del request.session['oidc_states'][state]
 
+            # Authenticating is slow, so save the updated oidc_states.
+            request.session.save()
+
             kwargs = {
                 'request': request,
                 'nonce': nonce,
             }
 
             self.user = auth.authenticate(**kwargs)
+
+            # Reload the oidc_states, because items might have been added whilst we were authenticating.
+            # Without this step we would overwrite newly added items
+            request.session.clear()
+            request.session.update(request.session.load())
 
             if self.user and self.user.is_active:
                 return self.login_success()
